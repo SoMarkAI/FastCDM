@@ -6,7 +6,7 @@
 
 <p>
   <a href="https://pypi.org/project/fastcdm/">
-    <img src="https://img.shields.io/badge/pypi-v0.1.0-blue" 
+    <img src="https://img.shields.io/badge/pypi-v0.1.1-blue" 
          alt="PyPI package version">
   </a>
   <a href="https://www.python.org">
