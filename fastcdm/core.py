@@ -19,6 +19,7 @@ import traceback
 root_dir = Path(__file__).parent
 TEMPLATE_FILE = root_dir / "render" / "templates" / "formula.html"
 
+
 def preprocess(s: str):
     # --- Step 1: Clean & Tokenization ---
     clean_s = clean(s)
@@ -49,38 +50,6 @@ def preprocess(s: str):
     final_latex = PATTERN_STRIP_END_BRACKET.sub("", final_latex)
 
     return final_latex, color_map
-
-
-def render(latex_strings: List[str], chromedriver: str):
-    try:
-        worker = RenderWorker(
-            template_file="file://" + str(TEMPLATE_FILE.resolve()),
-            timeout=30,
-            driver_path=chromedriver,
-        )
-    except Exception as e:
-        print("Failed to init RenderWorker:")
-        print("="*30)
-        print(traceback.format_exc(e))
-        return None
-
-    try:
-        latex_strings = [
-            f"$${s}$$" if not s.startswith("$$") else s for s in latex_strings
-        ]
-        imgs = worker.render(latex_strings)
-    except Exception as e:
-        print("Rendering failed:")
-        print("="*30)
-        print(traceback.format_exc(e))
-        return None
-    finally:
-        worker.close()
-
-    assert len(imgs) == len(
-        latex_strings
-    ), "Number of rendered images must match number of input strings"
-    return imgs
 
 
 def calculate_metrics(gt_len, pred_len, match_num):
@@ -238,10 +207,51 @@ def postprocess(
 
 
 class FastCDM:
-    def __init__(self, chromedriver: str=None) -> None:
+    def __init__(self, chromedriver: str = None) -> None:
         self.chromedriver = chromedriver
-    
-    def compute(self, gt: str, pred: str, visualize: bool=False) -> tuple:
+        self.render_worker = None
+        self.init_render_worker()
+
+    def init_render_worker(self) -> None:
+        try:
+            self.render_worker = RenderWorker(
+                template_file="file://" + str(TEMPLATE_FILE.resolve()),
+                timeout=30,
+                driver_path=self.chromedriver,
+            )
+        except Exception as e:
+            print("Failed to init RenderWorker:")
+            print("=" * 30)
+            print(traceback.format_exc(e))
+            return None
+
+    def render(self, latex_list: list) -> list:
+        """
+        渲染 LaTeX 表达式列表。
+
+        参数:
+            latex_list (list): LaTeX 表达式列表。
+
+        返回:
+            list: 渲染后的图像列表。
+        """
+        try:
+            latex_strings = [
+                f"$${s}$$" if not s.startswith("$$") else s for s in latex_list
+            ]
+            imgs = self.render_worker.render(latex_strings)
+        except Exception as e:
+            print("Rendering failed:")
+            print("=" * 30)
+            print(traceback.format_exc(e))
+            return []
+
+        assert len(imgs) == len(
+            latex_strings
+        ), "Number of rendered images must match number of input strings"
+        return imgs
+
+    def compute(self, gt: str, pred: str, visualize: bool = False) -> tuple:
         """
         计算给定的 GT 和预测 LaTeX 表达式的 CDM 分数。
 
@@ -255,12 +265,12 @@ class FastCDM:
         gt_latex, gt_color_map = preprocess(gt)
         pred_latex, pred_color_map = preprocess(pred)
 
-        imgs = render([gt_latex, pred_latex], self.chromedriver)
+        imgs = self.render([gt_latex, pred_latex])
         gt_img, pred_img = imgs[0], imgs[1]
 
         result = postprocess(gt_img, pred_img, gt_color_map, pred_color_map, visualize)
         return result
-    
+
     def batch_compute(self, gt_list: list, pred_list: list) -> list:
         """
         TODO
