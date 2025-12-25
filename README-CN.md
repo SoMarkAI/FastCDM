@@ -56,6 +56,10 @@ FastCDM的核心目标是**在训练过程中提供便捷的使用体验**，帮
 
 ### 安装
 
+需要提前安装`node.js`和`chromedriver`。
+* `node.js`的安装可以参考[这里](https://nodejs.org/)。
+* `chromedriver`的安装可以参考[这里](docs/chromedriver_installation.md)。
+
 ```bash
 pip install fastcdm
 ```
