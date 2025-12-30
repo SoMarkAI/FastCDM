@@ -1,4 +1,4 @@
----
+<!-- ---
 title: FastCDM
 emoji: ⚡️
 colorFrom: blue
@@ -11,7 +11,7 @@ tags:
 - formula-recognition
 - evaluation
 - katex
----
+--- -->
 
 <div align="center">
 
