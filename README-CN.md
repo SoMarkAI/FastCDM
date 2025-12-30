@@ -1,8 +1,23 @@
+---
+title: FastCDM
+emoji: ⚡️
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+short_description: High-performance LaTeX formula evaluation tool using KaTeX.
+tags:
+- latex
+- formula-recognition
+- evaluation
+- katex
+---
+
 <div align="center">
 
 # ⚡️FastCDM
 
-[**[GitHub Repo]**](https://github.com/BinyangQiu/FastCDM) | [**[HuggingFace Spaces]**](https://huggingface.co/spaces)
+[**[GitHub Repo]**](https://github.com/SoMarkAI/FastCDM) | [**[HuggingFace Spaces]**](https://huggingface.co/spaces/SoMark/FastCDM)
 
 <p>
   <a href="https://pypi.org/project/fastcdm/">
@@ -83,7 +98,7 @@ cdm_score, recall, precision, vis_img = evaluator.compute(gt="E = mc^2", pred="E
 
 ### 交互Demo
 
-我们提供了一个Gradio开发的可视化Demo，您可以在[HuggingFace Spaces](https://huggingface.co/spaces)中尝试使用。也可以本地启动：
+我们提供了一个Gradio开发的可视化Demo，您可以在[HuggingFace Spaces](https://huggingface.co/spaces/SoMark/FastCDM)中尝试使用。也可以本地启动：
 
 ```bash
 python3 scripts/app.py
@@ -96,7 +111,7 @@ python3 scripts/app.py
 - 建议改进
 - 提交代码变更（请先开issue讨论）
 
-请通过项目的[issues](https://github.com/BinyangQiu/FastCDM/issues)与我们联系。
+请通过项目的[issues](https://github.com/SoMarkAI/FastCDM/issues)与我们联系。
 
 ---
 
