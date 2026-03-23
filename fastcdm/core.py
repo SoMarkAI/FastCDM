@@ -71,13 +71,13 @@ def postprocess(
     pred_color_map: List[Tuple[str, Tuple[int, int, int]]],
     visualize: bool,
 ):
-    # Normalize Image Sizes (Max Height/Width)
+    # 对齐图像尺寸（取最大宽高）
     h_gt, w_gt = img_gt.shape[:2]
     h_pred, w_pred = img_pred.shape[:2]
     max_h = max(h_gt, h_pred)
     max_w = max(w_gt, w_pred)
 
-    # Create canvas
+    # 创建白色画布
     final_gt_img = np.full((max_h, max_w, 3), 255, dtype=np.uint8)
     final_gt_img[0:h_gt, 0:w_gt] = img_gt
 
@@ -89,13 +89,12 @@ def postprocess(
     gt_colors = [c[1] for c in gt_color_map]
     pred_colors = [c[1] for c in pred_color_map]
 
-    # bboxes format: [xmin, ymin, xmax, ymax]
+    # bbox 格式：[xmin, ymin, xmax, ymax]
     gt_bboxes_list = get_bboxes_from_array(final_gt_img, gt_colors)
     pred_bboxes_list = get_bboxes_from_array(final_pred_img, pred_colors)
 
-    # --- Step 3: Match Tokens ---
-    # Convert to list of dicts as expected by HungarianMatcher
-    # item = {'bbox': [xmin, ymin, xmax, ymax], 'token': token_str}
+    # --- 第三步：匹配 Token ---
+    # 转换为 HungarianMatcher 期望的格式：{'bbox': [xmin, ymin, xmax, ymax], 'token': str}
 
     gt_data = []
     for i, bbox in enumerate(gt_bboxes_list):
@@ -112,10 +111,10 @@ def postprocess(
 
     matched_idxes = matcher(gt_data, pred_data, size_tuple, size_tuple)
 
-    # RANSAC Verification
+    # RANSAC 几何验证
     src, dst = [], []
     for idx1, idx2 in matched_idxes:
-        # Center points
+        # 计算中心点
         x1_c = (gt_data[idx1]["bbox"][0] + gt_data[idx1]["bbox"][2]) / 2
         y1_c = (gt_data[idx1]["bbox"][1] + gt_data[idx1]["bbox"][3]) / 2
         x2_c = (pred_data[idx2]["bbox"][0] + pred_data[idx2]["bbox"][2]) / 2
@@ -148,14 +147,11 @@ def postprocess(
                 else:
                     break
             except Exception:
-                # Ransac might fail if data is degenerate
+                # 数据退化时 RANSAC 可能失败
                 break
 
-    # Double check token cost for inliers
+    # 复查内点的 token 代价：token 完全不同时即使空间对齐也拒绝
     for idx, (a, b) in enumerate(matched_idxes):
-        # matcher.cost['token'] is (gt_len, pred_len)
-        # If token cost is 1 (completely different), reject even if spatially aligned?
-        # visual_matcher.py logic: if inliers[idx] and matcher.cost['token'][a, b] == 1: inliers[idx] = False
         if inliers[idx] and matcher.cost["token"][a, b] == 1:
             inliers[idx] = False
 
@@ -171,13 +167,13 @@ def postprocess(
         vis_img[0:max_h, 0:max_w] = final_gt_img
         vis_img[max_h + 10 : max_h + 10 + max_h, 0:max_w] = final_pred_img
 
-        # Draw matches that are inliers
+        # 绘制内点匹配
         for idx, (gt_idx, pred_idx) in enumerate(matched_idxes):
             if inliers[idx]:
                 gt_box = gt_data[gt_idx]["bbox"]
                 pred_box = pred_data[pred_idx]["bbox"]
 
-                # Draw boxes
+                # 绘制边界框
                 cv2.rectangle(
                     vis_img,
                     (gt_box[0], gt_box[1]),
@@ -194,7 +190,7 @@ def postprocess(
                     1,
                 )
 
-                # Draw line
+                # 绘制连线
                 pt1 = (
                     int((gt_box[0] + gt_box[2]) / 2),
                     int((gt_box[1] + gt_box[3]) / 2),
@@ -221,7 +217,7 @@ class FastCDM:
         1. Node.js 环境是否安装。
         2. ChromeDriver 是否可用。
         """
-        # 1. 检查 Node.js
+        # 检查 Node.js
         node_path = shutil.which("node")
         if not node_path:
             raise RuntimeError(
@@ -234,7 +230,7 @@ class FastCDM:
         except Exception as e:
             raise RuntimeError(f"Node.js is found but failed to execute: {e}")
 
-        # 2. 检查 ChromeDriver
+        # 检查 ChromeDriver
         if self.chromedriver:
             if not os.path.exists(self.chromedriver):
                 raise FileNotFoundError(f"Specified ChromeDriver not found at: {self.chromedriver}")

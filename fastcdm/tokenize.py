@@ -283,9 +283,9 @@ def tokenize(latex_code: str) -> Tuple[bool, str]:
         )
         normalized_latex = proc.stdout
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        print(f"Error executing Node.js script (formula): {e}", file=sys.stderr)
+        print(f"执行 Node.js 脚本（公式）时出错：{e}", file=sys.stderr)
         if hasattr(e, "stderr"):
-            print(f"Node.js stderr: {e.stderr}", file=sys.stderr)
+            print(f"Node.js stderr：{e.stderr}", file=sys.stderr)
         return False, latex_code
 
     names = [
