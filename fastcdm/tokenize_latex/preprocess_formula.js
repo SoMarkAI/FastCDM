@@ -36,8 +36,7 @@ rl.on('line', function(line){
     
 
     line = line + " "
-    // global_str is tokenized version (build in parser.js)
-    // norm_str is normalized version build by renderer below.
+    // global_str：由 parser.js 构建的分词结果；norm_str：由下方渲染器构建的规范化结果
     try {
     
 
@@ -71,7 +70,7 @@ rl.on('line', function(line){
 
 
 
-// This is a LaTeX AST to LaTeX Renderer (modified version of KaTeX AST-> MathML).
+// LaTeX AST → LaTeX 渲染器（基于 KaTeX AST→MathML 修改而来）
 norm_str = ""
 
 var groupTypes = {};
@@ -196,7 +195,7 @@ groupTypes.array = function(group, options) {
     }
     norm_str = norm_str + "} ";
     group.value.body.map(function(row) {
-        if (row.some(cell => cell.value.length > 0)) { // orginal code: if (row[0].value.length > 0)
+        if (row.some(cell => cell.value.length > 0)) { // 原始代码：if (row[0].value.length > 0)
             out = row.map(function(cell) {
                 buildGroup(cell, options);
                 if (norm_str.length > 4 
@@ -257,11 +256,8 @@ groupTypes.spacing = function(group) {
 groupTypes.op = function(group) {
     var node;
 
-    // TODO(emily): handle big operators using the `largeop` attribute
-    
-    
     if (group.value.symbol) {
-        // This is a symbol. Just add the symbol.
+        // 直接输出符号
         norm_str = norm_str + group.value.body + " ";
 
     } else {
@@ -360,9 +356,7 @@ groupTypes.phantom = function(group, options, prev) {
 };
 
 /**
- * Takes a list of nodes, builds them, and returns a list of the generated
- * MathML nodes. A little simpler than the HTML version because we don't do any
- * previous-node handling.
+ * 遍历节点列表并依次构建，将结果追加到 norm_str。
  */
 var buildExpression = function(expression, options) {
     var groups = [];
@@ -370,13 +364,10 @@ var buildExpression = function(expression, options) {
         var group = expression[i];
         buildGroup(group, options);
     }
-    // console.log(norm_str);
-    // return groups;
 };
 
 /**
- * Takes a group from the parser and calls the appropriate groupTypes function
- * on it to produce a MathML node.
+ * 根据节点类型调用对应的 groupTypes 处理函数，将结果追加到 norm_str。
  */
 var buildGroup = function(group, options) {
     if (groupTypes[group.type]) {
