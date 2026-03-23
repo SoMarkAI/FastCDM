@@ -213,9 +213,9 @@ def update_inliers(ori_inliers, sub_inliers):
     inliers = np.copy(ori_inliers)
     sub_idx = -1
     for idx in range(len(ori_inliers)):
-        if ori_inliers[idx] == False:
+        if not ori_inliers[idx]:
             sub_idx += 1
-            if sub_inliers[sub_idx] == True:
+            if sub_inliers[sub_idx]:
                 inliers[idx] = True
     return inliers
 
