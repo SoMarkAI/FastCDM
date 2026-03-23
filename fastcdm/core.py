@@ -286,7 +286,7 @@ class FastCDM:
         except Exception as e:
             print("Rendering failed:")
             print("=" * 30)
-            print(traceback.format_exc(e))
+            print(traceback.format_exc())
             return []
 
         assert len(imgs) == len(
