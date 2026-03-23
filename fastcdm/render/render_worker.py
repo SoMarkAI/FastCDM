@@ -175,5 +175,5 @@ class RenderWorker:
         """
         try:
             self.close()
-        except:
+        except Exception:
             pass
