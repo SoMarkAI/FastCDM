@@ -15,6 +15,13 @@ class SimpleAffineTransform:
         src_dists = np.linalg.norm(src - src_center, axis=1)
         dst_dists = np.linalg.norm(dst - dst_center, axis=1)
         self.scale = np.mean(dst_dists) / (np.mean(src_dists) + 1e-10)
+        return True
+
+    @classmethod
+    def from_estimate(cls, src, dst, **kwargs):
+        model = cls()
+        model.estimate(src, dst, **kwargs)
+        return model
 
     def inverse(self):
         return SimpleAffineTransform(-self.translation, 1.0 / self.scale)
