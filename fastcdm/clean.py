@@ -1,5 +1,9 @@
 import re
 
+# \ce{...} 包装会导致 mhchem 忽略内部 \color{}，取消包装后 KaTeX 可正常保留 token 颜色
+PATTERN_CE_COMMAND = re.compile(r"\\ce\{([^}]*)\}")
+PATTERN_XLONGEQUAL = re.compile(r"\\xlongequal\{([^}]*)\}")
+
 # 移除 pred 字段首尾的 \[ 和 \]
 # 该正则用于去掉字符串开头被颜色宏包裹的 \[，确保公式起始干净
 PATTERN_STRIP_START_BRACKET = re.compile(
@@ -44,5 +48,10 @@ def clean(s: str) -> str:
     """
     processed_text = full_to_half_width(s)
     processed_text = processed_text.replace("{/[}", r" \[").replace("{/]}", r" \]")
+    # 取消 \ce{...} 和 \xlongequal{} 包装，确保 KaTeX 保留 token 颜色
+    processed_text = PATTERN_CE_COMMAND.sub(r"\1", processed_text)
+    processed_text = PATTERN_XLONGEQUAL.sub(r"\\xrightarrow{\1}", processed_text)
+    # \bm 不被 KaTeX 支持，替换为 \boldsymbol
+    processed_text = processed_text.replace(r"\bm{", r"\boldsymbol{")
     cleaned_text = clean_latex_delimiters(processed_text)
     return cleaned_text
