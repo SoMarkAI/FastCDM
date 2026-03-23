@@ -819,8 +819,26 @@ def token_add_color_RGB(l_split, idx, token_list, brace_color=False):
         else:
             next_idx = idx + 1
     else:
-
-        if brace_color or (idx > 1 and l_split[idx - 1] == "_"):
+        # 以空格分词后可能产生结构不完整的片段 token，对其着色会破坏外层 LaTeX 结构。
+        # 以下三种情况之一触发时跳过着色，直接透传：
+        #   1. {} 数量不平衡 → 片段跨越多个 token 构成完整括号对
+        #   2. 运行时括号深度降至负值 → token 跨越了前一个 token 开启的括号边界
+        #   3. 包含 \\ → LaTeX 换行分隔符，不能嵌套在 \color{}{} 参数内
+        open_count = token.count("{")
+        close_count = token.count("}")
+        has_row_sep = "\\\\" in token  # \\ 为 LaTeX 换行分隔符（两个实际反斜杠）
+        balance = 0
+        min_balance = 0
+        for ch in token:
+            if ch == "{":
+                balance += 1
+            elif ch == "}":
+                balance -= 1
+                if balance < min_balance:
+                    min_balance = balance
+        if open_count != close_count or has_row_sep or min_balance < 0:
+            next_idx = idx + 1
+        elif brace_color or (idx > 1 and l_split[idx - 1] == "_"):
             color_token = "\\mathcolor[RGB]{<color_<idx>>}{".replace(
                 "<idx>", str(len(token_list))
             )
