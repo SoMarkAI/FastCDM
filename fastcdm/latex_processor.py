@@ -84,7 +84,7 @@ PHANTOM_Tokens = [
 
 # 以下命令在后续处理中被识别为“双尾”命令：它们需要两个 {} 参数。
 # 例如 \frac{分子}{分母}，在着色时会分别对两个参数进行灰色处理。
-TWO_Tail_Tokens = ["\\frac", "\\binom"]
+TWO_Tail_Tokens = ["\\frac", "\\binom", "\\cfrac"]
 
 # AB_Tail_Tokens 中的命令具有“可选+必选”参数结构：
 # 第一个参数可以是 []，第二个必须是 {}。
@@ -118,6 +118,20 @@ ONE_Tail_Tokens = [
     "\\Ddot",
     "\\dddot",
     "\\ddddot",
+    "\\overrightarrow",
+    "\\overleftarrow",
+    "\\overleftrightarrow",
+    "\\underrightarrow",
+    "\\underleftarrow",
+    "\\underleftrightarrow",
+    "\\overbrace",
+    "\\widecheck",
+    "\\wideparen",
+    "\\cancel",
+    "\\bcancel",
+    "\\xcancel",
+    "\\cancelto",
+    "\\boxed",
 ]
 
 # ONE_Tail_Invisb_Tokens 中的命令同样只需一个 {} 参数，
@@ -148,6 +162,7 @@ ONE_Tail_Invisb_Tokens = [
     "\\mathbin",
     "\\smash",
     "\\operatorname",
+    "\\operatorname*",
     "\\textrm",
     "\\mathfrak",
     "\\emph",
