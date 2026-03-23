@@ -24,22 +24,22 @@ TEMPLATE_FILE = root_dir / "render" / "templates" / "formula.html"
 
 
 def preprocess(s: str):
-    # --- Step 1: Clean & Tokenization ---
+    # --- 第一步：清洗与分词 ---
     clean_s = clean(s)
     success_tokenization, tokenized_s = tokenize(clean_s)
 
     if not success_tokenization:
         raise RuntimeError("Tokenization failed")
 
-    # --- Step 2: Prepare Colorized Latex for KaTeX ---
+    # --- 第二步：生成着色 LaTeX ---
     katex_template, token_list = process_for_katex(tokenized_s)
 
-    # Generate colors
+    # 生成高对比度颜色
     num_colors = len(token_list) + 10
     colors_rgb = generate_high_contrast_colors(num_colors)
 
     final_latex = katex_template
-    color_map = []  # List of (token, rgb_color)
+    color_map = []  # (token, rgb颜色) 映射列表
     for c_idx, token in enumerate(token_list):
         r, g, b = colors_rgb[c_idx % len(colors_rgb)]
         final_latex = final_latex.replace(
