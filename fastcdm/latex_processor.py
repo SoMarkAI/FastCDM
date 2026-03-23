@@ -14,6 +14,12 @@ SKIP_PATTERNS = [
     r"\\.*rule.*",
     r"\\.*line.*",
     r"\[[\-.0-9]+[epm][xtm]\]",
+    # \left/\right 与定界符组合（如 \left\{、\left.、\right.）分词后构成单一 token，
+    # 包裹进 \color{}{} 会破坏 KaTeX 的 \left...\right 配对
+    r"\\left.",
+    r"\\right.",
+    # \tag{...} 和 \tag*{...} 是行间公式专属命令，包裹进 \color{}{} 会导致 KaTeX 解析失败
+    r"\\tag",
 ]
 
 # 以下列表中的 LaTeX 命令在后续处理中被视为“透明”或“无意义”的 token。
@@ -52,6 +58,14 @@ SKIP_Tokens = [
     "\\gdef",
     "\\today",
     "\\the",
+    # \tag 必须作为顶层命令，其 {arg} 需直接跟随，包裹进 \color{}{} 会破坏 KaTeX 解析
+    "\\tag",
+    "\\tag*",
+    # 定界符尺寸命令必须紧接定界符，包裹进 \color{}{} 会破坏 \bigg( 等组合的关联
+    "\\big", "\\Big", "\\bigg", "\\Bigg",
+    "\\bigl", "\\Bigl", "\\biggl", "\\Biggl",
+    "\\bigr", "\\Bigr", "\\biggr", "\\Biggr",
+    "\\bigm", "\\Bigm", "\\biggm", "\\Biggm",
 ]
 
 # PHANTOM_Tokens 中的命令在后续着色时被视为“幻影”命令：
