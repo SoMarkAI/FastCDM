@@ -14,7 +14,10 @@ rl.on('line', function(line){
     if (line[0] == "%") {
         line = line.substr(1, line.length - 1);
     }
+    // 用占位符保护已转义的 \%，仅去除未转义的 %（LaTeX 注释），再还原 \%
+    line = line.replace(/\\%/g, '\x00PCT\x00');
     line = line.split('%')[0];
+    line = line.replace(/\x00PCT\x00/g, '\\%');
 
     line = line.split('\\~').join(' ');
     

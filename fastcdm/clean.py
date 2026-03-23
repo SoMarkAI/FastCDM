@@ -53,5 +53,7 @@ def clean(s: str) -> str:
     processed_text = PATTERN_XLONGEQUAL.sub(r"\\xrightarrow{\1}", processed_text)
     # \bm 不被 KaTeX 支持，替换为 \boldsymbol
     processed_text = processed_text.replace(r"\bm{", r"\boldsymbol{")
+    # 转义未转义的 %，防止 Node.js tokenizer 将其误识别为注释
+    processed_text = re.sub(r'(?<!\\)%', r'\\%', processed_text)
     cleaned_text = clean_latex_delimiters(processed_text)
     return cleaned_text
