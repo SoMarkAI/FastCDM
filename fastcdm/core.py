@@ -29,8 +29,7 @@ def preprocess(s: str):
     success_tokenization, tokenized_s = tokenize(clean_s)
 
     if not success_tokenization:
-        print("Tokenization failed")
-        return 0.0
+        raise RuntimeError("Tokenization failed")
 
     # --- Step 2: Prepare Colorized Latex for KaTeX ---
     katex_template, token_list = process_for_katex(tokenized_s)
