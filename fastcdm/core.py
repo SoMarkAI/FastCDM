@@ -305,6 +305,8 @@ class FastCDM:
         pred_latex, pred_color_map = preprocess(pred)
 
         imgs = self.render([gt_latex, pred_latex])
+        if len(imgs) < 2 or imgs[0] is None or imgs[1] is None:
+            return (0, 0, 0, None) if visualize else (0, 0, 0)
         gt_img, pred_img = imgs[0], imgs[1]
 
         result = postprocess(gt_img, pred_img, gt_color_map, pred_color_map, visualize)
