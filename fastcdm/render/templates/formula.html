@@ -50,16 +50,21 @@
           container.appendChild(div);
         }
 
-        renderMathInElement(container, {
+        for (const element of container.children) {
+        renderMathInElement(element, {
           delimiters: [
             { left: '$$', right: '$$', display: true },
             { left: '$', right: '$', display: false },
           ],
-          throwOnError: false,
+          throwOnError: true,
+          errorCallback: (message, error) => {
+            element.dataset.renderError = String(error || message);
+          },
           maxExpand: 20000,
           trust: true, 
           strict: false 
         });
+        }
         document.body.classList.add('rendering-complete');
       }
     </script>
