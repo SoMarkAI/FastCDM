@@ -1,4 +1,4 @@
-from fastcdm.render.render_worker import RenderWorker
+from fastcdm.render.render_worker import RenderResult, RenderWorker
 from fastcdm.matcher import update_inliers, HungarianMatcher, SimpleAffineTransform
 from fastcdm.clean import (
     clean,
@@ -7,6 +7,7 @@ from fastcdm.clean import (
 )
 from fastcdm.tokenize import tokenize
 from fastcdm.colorize import process_for_katex, generate_high_contrast_colors
+from fastcdm.latex_processor import validate_formula_structure
 from fastcdm.box import get_bboxes_from_array
 
 import cv2
@@ -26,6 +27,10 @@ TEMPLATE_FILE = root_dir / "render" / "templates" / "formula.html"
 def preprocess(s: str):
     # --- 第一步：清洗与分词 ---
     clean_s = clean(s)
+    try:
+        validate_formula_structure(clean_s)
+    except ValueError as exc:
+        raise RuntimeError(str(exc)) from exc
     success_tokenization, tokenized_s = tokenize(clean_s)
 
     if not success_tokenization:
@@ -291,17 +296,23 @@ class FastCDM:
             latex_strings = [
                 f"$${s}$$" if not s.startswith("$$") else s for s in latex_list
             ]
-            imgs = self.render_worker.render(latex_strings)
+            results = self.render_worker.render(latex_strings)
         except Exception as e:
             print("Rendering failed:")
             print("=" * 30)
             print(traceback.format_exc())
             return []
 
-        assert len(imgs) == len(
+        assert len(results) == len(
             latex_strings
         ), "Number of rendered images must match number of input strings"
-        return imgs
+        return [result.image for result in results]
+
+    def render_results(self, latex_list: list) -> List[RenderResult]:
+        latex_strings = [
+            f"$${s}$$" if not s.startswith("$$") else s for s in latex_list
+        ]
+        return self.render_worker.render(latex_strings)
 
     def compute(self, gt: str, pred: str, visualize: bool = False) -> tuple:
         """

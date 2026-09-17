@@ -2,7 +2,8 @@ import os
 import cv2
 import random
 import numpy as np
-from typing import List
+from dataclasses import dataclass
+from typing import List, Optional
 
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
@@ -11,6 +12,16 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
+
+
+@dataclass
+class RenderResult:
+    image: Optional[np.ndarray]
+    error: bool
+    error_text: Optional[str]
+    width: int
+    height: int
+    error_type: Optional[str] = None
 
 
 class RenderWorker:
@@ -76,7 +87,7 @@ class RenderWorker:
             EC.presence_of_all_elements_located((By.ID, "container"))
         )
 
-    def render(self, contents: List[str]) -> List[np.ndarray]:
+    def render(self, contents: List[str]) -> List[RenderResult]:
         """
         渲染一组内容并返回每个元素的截图。
         """
@@ -113,13 +124,13 @@ class RenderWorker:
 
         # 获取每个渲染元素的边界框
         rects = self.get_rects()
-        cropped_imgs = []
+        results = []
         img_h, img_w = fullpage_img.shape[:2]
 
         # 根据边界框裁剪出每个元素的图像
         for rect in rects:
             if rect is None:
-                cropped_imgs.append(None)
+                results.append(RenderResult(None, True, "Invalid capture rectangle", 0, 0, "invalid_capture"))
             else:
                 x, y, w, h = rect
                 # 计算一个小的随机边距，让截图更自然
@@ -132,9 +143,9 @@ class RenderWorker:
                 y2 = min(img_h, y + h + border_size)
 
                 cropped = fullpage_img[y1:y2, x1:x2]
-                cropped_imgs.append(cropped)
+                results.append(RenderResult(cropped, cropped.size == 0, "Empty cropped image" if cropped.size == 0 else None, w, h, "empty_image" if cropped.size == 0 else None))
 
-        return cropped_imgs
+        return results
 
     def get_rects(self) -> list:
         """

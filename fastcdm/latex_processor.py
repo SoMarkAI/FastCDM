@@ -1,5 +1,40 @@
 import re
 
+
+def token_has_unsafe_structure(token: str) -> bool:
+    depth = 0
+    for index, char in enumerate(token):
+        if index > 0 and token[index - 1] == "\\":
+            continue
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth < 0:
+                return True
+    return depth != 0 or "\\\\" in token
+
+
+def validate_formula_structure(latex: str) -> None:
+    depth = 0
+    for index, char in enumerate(latex):
+        if index > 0 and latex[index - 1] == "\\":
+            continue
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth < 0:
+                raise ValueError("Unmatched closing brace")
+    if depth:
+        raise ValueError("Unmatched opening brace")
+
+    has_environment = bool(re.search(r"\\begin\{[^}]+\}", latex))
+    if not has_environment and re.search(r"(?<!\\)&", latex):
+        raise ValueError("Alignment marker outside an environment")
+    if not has_environment and re.search(r"(?<!\\)\\\\(?!\\)", latex):
+        raise ValueError("Row separator outside an environment")
+
 # 以下列表定义了在后续 token_add_color 系列函数中“跳过”的正则模式。
 # 任何匹配这些模式的 token 都不会被着色，而是保持原样（通常用黑色标记）。
 # 主要用于括号、环境边界、上下标等结构元素。
@@ -824,19 +859,7 @@ def token_add_color_RGB(l_split, idx, token_list, brace_color=False):
         #   1. {} 数量不平衡 → 片段跨越多个 token 构成完整括号对
         #   2. 运行时括号深度降至负值 → token 跨越了前一个 token 开启的括号边界
         #   3. 包含 \\ → LaTeX 换行分隔符，不能嵌套在 \color{}{} 参数内
-        open_count = token.count("{")
-        close_count = token.count("}")
-        has_row_sep = "\\\\" in token  # \\ 为 LaTeX 换行分隔符（两个实际反斜杠）
-        balance = 0
-        min_balance = 0
-        for ch in token:
-            if ch == "{":
-                balance += 1
-            elif ch == "}":
-                balance -= 1
-                if balance < min_balance:
-                    min_balance = balance
-        if open_count != close_count or has_row_sep or min_balance < 0:
+        if token_has_unsafe_structure(token):
             next_idx = idx + 1
         elif brace_color or (idx > 1 and l_split[idx - 1] == "_"):
             color_token = "\\mathcolor[RGB]{<color_<idx>>}{".replace(
