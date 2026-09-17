@@ -94,7 +94,7 @@ from fastcdm import FastCDM
 chromedriver_path = "driver/chromedriver"
 
 # 初始化 FastCDM 评估器
-evaluator = FastCDM(chromedriver_path=chromedriver_path)
+evaluator = FastCDM(chromedriver=chromedriver_path)
 
 # 评估
 cdm_score, recall, precision = evaluator.compute(gt="E = mc^2", pred="E + 1 = mc^2", visualize=False)
