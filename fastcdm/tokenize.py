@@ -194,7 +194,9 @@ PATTERN_ALIGN_ENV = re.compile(
     r"\\begin{(split|align|alignedat|alignat|eqnarray)\*?}(.+?)\\end{\1\*?}", re.S
 )
 PATTERN_SMALLMATRIX = re.compile(r"\\begin{(smallmatrix)\*?}(.+?)\\end{\1\*?}", re.S)
-PATTERN_INVALID_SINGLE_CHAR_CMD = re.compile(r"\\([a-zA-Z0-9])(?![a-zA-Z])")
+PATTERN_INVALID_SINGLE_CHAR_CMD = re.compile(
+    r"(?<!\\)\\([a-zA-Z0-9])(?![a-zA-Z])"
+)
 PATTERN_LATEX_CMD_CONCAT_CMD = re.compile(
     r"\\(" + TARGETS_PATTERN + r")" + r"(\\[a-zA-Z])"
 )

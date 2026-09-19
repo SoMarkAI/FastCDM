@@ -196,8 +196,17 @@ groupTypes.array = function(group, options) {
     norm_str = norm_str + "} ";
     group.value.body.map(function(row) {
         if (row.some(cell => cell.value.length > 0)) { // 原始代码：if (row[0].value.length > 0)
-            out = row.map(function(cell) {
-                buildGroup(cell, options);
+            out = row.map(function(cell, cellIndex) {
+                if (cellIndex === 0 && cell.value.length > 0 &&
+                    cell.value[0].value === "\\hline") {
+                    norm_str = norm_str + "\\hline ";
+                    var cellWithoutHline = Object.assign({}, cell, {
+                        value: cell.value.slice(1)
+                    });
+                    buildGroup(cellWithoutHline, options);
+                } else {
+                    buildGroup(cell, options);
+                }
                 if (norm_str.length > 4 
                     && norm_str.substring(norm_str.length-4, norm_str.length) == "{ } ") {
                     norm_str = norm_str.substring(0, norm_str.length-4) ;

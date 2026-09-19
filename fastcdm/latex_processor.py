@@ -1,5 +1,51 @@
 import re
 
+
+ATOMIC_GROUP_COMMANDS = {r"\tag", r"\tag*", r"\hspace", r"\hspace*"}
+DELIMITER_COMMANDS = {
+    r"\left", r"\right", r"\big", r"\Big", r"\bigg", r"\Bigg",
+    r"\bigl", r"\Bigl", r"\biggl", r"\Biggl", r"\bigr", r"\Bigr",
+    r"\biggr", r"\Biggr", r"\bigm", r"\Bigm", r"\biggm", r"\Biggm",
+}
+COMMAND_SHELLS = {r"\substack", r"\textcircled", r"\fbox", r"\xrightleftharpoons"}
+LIMIT_OPERATORS = {
+    r"\sum", r"\prod", r"\int", r"\oint", r"\bigvee", r"\bigwedge",
+    r"\lim", r"\max", r"\min", r"\sup", r"\inf",
+}
+COMBINED_DELIMITER_RE = re.compile(
+    r"^\\(?:big|Big|bigg|Bigg)(?:l|r|m)?(?:[()\[\]{}|.]|\\[A-Za-z]+)$"
+)
+DIMENSION_RE = re.compile(
+    r"^[+\-]?(?:\d+(?:\.\d*)?|\.\d+)(?:pt|px|em|ex|mu|cm|mm|in|pc|bp|dd|cc|sp)$"
+)
+
+
+def skip_balanced_group(tokens, start, left="{", right="}"):
+    """Return the first index after a balanced group, or start if unclosed."""
+    if start >= len(tokens) or tokens[start] != left:
+        return start
+    depth = 0
+    for index in range(start, len(tokens)):
+        if tokens[index] == left:
+            depth += 1
+        elif tokens[index] == right:
+            depth -= 1
+            if depth == 0:
+                return index + 1
+    return start
+
+
+def _collapse_dimension(tokens, start):
+    value = ""
+    for index in range(start, min(len(tokens), start + 32)):
+        value += tokens[index]
+        if DIMENSION_RE.fullmatch(value):
+            tokens[start : index + 1] = [value]
+            return start + 1
+        if not re.fullmatch(r"[+\-0-9.a-zA-Z]+", value):
+            break
+    return start
+
 # 以下列表定义了在后续 token_add_color 系列函数中“跳过”的正则模式。
 # 任何匹配这些模式的 token 都不会被着色，而是保持原样（通常用黑色标记）。
 # 主要用于括号、环境边界、上下标等结构元素。
@@ -668,6 +714,39 @@ def token_add_color_RGB(l_split, idx, token_list, brace_color=False):
     token = l_split[idx]
     if not token:
         next_idx = idx + 1
+    elif token in ATOMIC_GROUP_COMMANDS or re.match(r"^\\hspace\*?\{.*\}$", token):
+        next_idx = idx + 1
+        if (
+            token in {r"\tag", r"\hspace"}
+            and next_idx < len(l_split)
+            and l_split[next_idx] == "*"
+        ):
+            next_idx += 1
+        if next_idx < len(l_split) and l_split[next_idx] == "{":
+            if token in {r"\hspace", r"\hspace*"}:
+                _collapse_dimension(l_split, next_idx + 1)
+            group_end = skip_balanced_group(l_split, next_idx)
+            next_idx = group_end if group_end != next_idx else next_idx
+    elif token == r"\hskip":
+        next_idx = _collapse_dimension(l_split, idx + 1)
+        if next_idx == idx + 1:
+            next_idx = idx + 1
+    elif token in DELIMITER_COMMANDS:
+        next_idx = min(idx + 2, len(l_split))
+    elif COMBINED_DELIMITER_RE.match(token) or token in COMMAND_SHELLS:
+        next_idx = idx + 1
+    elif (
+        token in LIMIT_OPERATORS
+        and idx + 1 < len(l_split)
+        and l_split[idx + 1] in {r"\limits", r"\nolimits"}
+    ):
+        color_token = "\\mathcolor[RGB]{<color_<idx>>}{".replace(
+            "<idx>", str(len(token_list))
+        )
+        l_split[idx] = color_token + token
+        l_split[idx + 1] = l_split[idx + 1] + "}"
+        token_list.append(token)
+        next_idx = idx + 2
     elif token in PHANTOM_Tokens:
         if l_split[idx + 1] == "{":
             brace_end = find_matching_brace(l_split, idx + 1)
