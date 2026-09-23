@@ -62,7 +62,7 @@ rl.on('line', function(line){
         console.error(line);
         console.error(norm_str);
         console.error(e);
-        console.log();
+        process.exitCode = 1;
     }
     global_str = ""
     norm_str = ""
@@ -256,7 +256,7 @@ groupTypes.spacing = function(group) {
 groupTypes.op = function(group) {
     var node;
 
-    if (group.value.symbol) {
+    if (group.value.symbol || group.value.alwaysHandleSupSub) {
         // 直接输出符号
         norm_str = norm_str + group.value.body + " ";
 
@@ -270,6 +270,10 @@ groupTypes.op = function(group) {
             norm_str = norm_str + group.value.body[i] + " ";
         }
         norm_str = norm_str + "} ";
+    }
+    // The parser sets this flag only for an explicit limit control.
+    if (group.value.alwaysHandleSupSub) {
+        norm_str += group.value.limits ? "\\limits " : "\\nolimits ";
     }
 };
 

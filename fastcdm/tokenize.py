@@ -2,7 +2,10 @@ import re
 import subprocess
 from pathlib import Path
 from typing import Tuple
-import sys
+
+
+class CDMPreprocessingError(RuntimeError):
+    """Raised when formula normalization fails or produces unusable output."""
 
 
 IMPLICIT_MULTIPLICATION_TARGETS = [
@@ -124,6 +127,7 @@ IMPLICIT_MULTIPLICATION_TARGETS = [
     "partial",
     "nabla",
     "int",
+    "limits",
     "oint",
     "sum",
     "prod",
@@ -198,9 +202,12 @@ PATTERN_INVALID_SINGLE_CHAR_CMD = re.compile(r"\\([a-zA-Z0-9])(?![a-zA-Z])")
 PATTERN_LATEX_CMD_CONCAT_CMD = re.compile(
     r"\\(" + TARGETS_PATTERN + r")" + r"(\\[a-zA-Z])"
 )
-PATTERN_LATEX_CMD_CONCAT_TEXT = re.compile(r"\\(" + TARGETS_PATTERN + r")([a-zA-Z])")
+PATTERN_LATEX_CMD_CONCAT_TEXT = re.compile(
+    r"\\(?!(?:" + TARGETS_PATTERN + r")(?![a-zA-Z]))"
+    r"(" + TARGETS_PATTERN + r")([a-zA-Z])"
+)
 PATTERN_NON_CMD_IMPLICIT_MULT = re.compile(
-    r"\b(" + TARGETS_PATTERN + r")([a-zA-Z][a-zA-Z0-9]*)\b"
+    r"(?<!\\)\b(" + TARGETS_PATTERN + r")([a-zA-Z][a-zA-Z0-9]*)\b"
 )
 
 OPERATORS = "\s?".join(
@@ -247,7 +254,27 @@ PATTERN_OPERATOR_NAME = re.compile(r"\\operatorname {(%s)}" % OPERATORS)
 
 
 
-def tokenize(latex_code: str) -> Tuple[bool, str]:
+def _validate_normalized(source: str, normalized: str) -> None:
+    if source.strip() and not normalized.strip():
+        raise CDMPreprocessingError("Tokenizer returned empty output for non-empty input")
+    if "[PROCESSING FAILED]" in normalized:
+        raise CDMPreprocessingError("Tokenizer returned a processing failure marker")
+    environments = []
+    for match in re.finditer(r"\\(begin|end)\s*\{\s*([^{}]*?)\s*\}", normalized):
+        # A backslash escaped by another backslash is not a command start.
+        preceding = len(normalized[:match.start()]) - len(normalized[:match.start()].rstrip("\\"))
+        if preceding % 2:
+            continue
+        command, environment = match.groups()
+        if command == "begin":
+            environments.append(environment)
+        elif not environments or environments.pop() != environment:
+            raise CDMPreprocessingError("Tokenizer returned mismatched begin/end environments")
+    if environments:
+        raise CDMPreprocessingError("Tokenizer returned mismatched begin/end environments")
+
+
+def tokenize(latex_code: str, timeout: float = 30.0) -> Tuple[bool, str]:
 
     if not latex_code:
         return True, ""
@@ -280,13 +307,14 @@ def tokenize(latex_code: str) -> Tuple[bool, str]:
             text=True,
             check=True,
             encoding="utf-8",
+            timeout=timeout,
         )
         normalized_latex = proc.stdout
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        print(f"执行 Node.js 脚本（公式）时出错：{e}", file=sys.stderr)
-        if hasattr(e, "stderr"):
-            print(f"Node.js stderr：{e.stderr}", file=sys.stderr)
-        return False, latex_code
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as e:
+        detail = getattr(e, "stderr", None) or str(e)
+        raise CDMPreprocessingError(f"Node.js tokenizer failed: {detail}") from e
+
+    _validate_normalized(latex_code, normalized_latex)
 
     names = [
         "\\" + x.replace(" ", "")
@@ -295,4 +323,6 @@ def tokenize(latex_code: str) -> Tuple[bool, str]:
     post = PATTERN_OPERATOR_NAME.sub(
         lambda match: str(names.pop(0)), normalized_latex
     ).replace(r"\\ \end{array}", r"\end{array}")
-    return True, post.strip()
+    post = post.strip()
+    _validate_normalized(latex_code, post)
+    return True, post
