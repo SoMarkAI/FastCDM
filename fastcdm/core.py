@@ -1,4 +1,4 @@
-from fastcdm.render.render_worker import RenderWorker
+from fastcdm.render.render_worker import RenderResult, RenderWorker
 from fastcdm.matcher import update_inliers, HungarianMatcher, SimpleAffineTransform
 from fastcdm.clean import (
     clean,
@@ -204,18 +204,6 @@ def postprocess(
     return (f1, recall, precision, vis_img) if visualize else (f1, recall, precision)
 
 
-def _has_katex_error(img: np.ndarray) -> bool:
-    """检测渲染图像中是否含有 KaTeX 红色报错文字（#cc0000 ≈ BGR(0,0,204)）。"""
-    if img is None:
-        return True
-    b = img[:, :, 0].astype(np.int32)
-    g = img[:, :, 1].astype(np.int32)
-    r = img[:, :, 2].astype(np.int32)
-    # KaTeX error color: #cc0000 → RGB(204,0,0) → BGR(0,0,204)
-    error_mask = (np.abs(r - 204) < 30) & (g < 30) & (b < 30)
-    return int(error_mask.sum()) >= 5
-
-
 class FastCDM:
     def __init__(self, chromedriver: str = None) -> None:
         self.chromedriver = chromedriver
@@ -291,17 +279,25 @@ class FastCDM:
             latex_strings = [
                 f"$${s}$$" if not s.startswith("$$") else s for s in latex_list
             ]
-            imgs = self.render_worker.render(latex_strings)
+            results = self.render_worker.render(latex_strings)
         except Exception as e:
             print("Rendering failed:")
             print("=" * 30)
             print(traceback.format_exc())
             return []
 
-        assert len(imgs) == len(
+        assert len(results) == len(
             latex_strings
         ), "Number of rendered images must match number of input strings"
-        return imgs
+        return [result.image for result in results]
+
+    def render_results(self, latex_list: list) -> List[RenderResult]:
+        if self.render_worker is None:
+            return [RenderResult(None, True, "Renderer is unavailable", 0, 0) for _ in latex_list]
+        latex_strings = [
+            f"$${s}$$" if not s.startswith("$$") else s for s in latex_list
+        ]
+        return self.render_worker.render(latex_strings)
 
     def compute(self, gt: str, pred: str, visualize: bool = False) -> tuple:
         """
@@ -317,14 +313,14 @@ class FastCDM:
         gt_latex, gt_color_map = preprocess(gt)
         pred_latex, pred_color_map = preprocess(pred)
 
-        imgs = self.render([gt_latex, pred_latex])
-        if len(imgs) < 2 or imgs[0] is None or imgs[1] is None:
+        render_results = self.render_results([gt_latex, pred_latex])
+        if (
+            len(render_results) != 2
+            or any(result.error or result.image is None for result in render_results[:2])
+        ):
             self.render_failure_count += 1
             return (0, 0, 0, None) if visualize else (0, 0, 0)
-        gt_img, pred_img = imgs[0], imgs[1]
-
-        if _has_katex_error(gt_img) or _has_katex_error(pred_img):
-            self.render_failure_count += 1
+        gt_img, pred_img = render_results[0].image, render_results[1].image
 
         result = postprocess(gt_img, pred_img, gt_color_map, pred_color_map, visualize)
         return result
