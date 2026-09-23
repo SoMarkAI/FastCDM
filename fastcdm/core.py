@@ -1,4 +1,4 @@
-from fastcdm.render.render_worker import RenderWorker
+from fastcdm.render.render_worker import RenderResult, RenderWorker
 from fastcdm.matcher import update_inliers, HungarianMatcher, SimpleAffineTransform
 from fastcdm.clean import (
     clean,
@@ -11,7 +11,8 @@ from fastcdm.box import get_bboxes_from_array
 
 import cv2
 import numpy as np
-from typing import List, Tuple
+from dataclasses import dataclass
+from typing import List, Literal, Optional, Tuple
 from pathlib import Path
 from skimage.measure import ransac
 import traceback
@@ -21,6 +22,31 @@ import os
 
 root_dir = Path(__file__).parent
 TEMPLATE_FILE = root_dir / "render" / "templates" / "formula.html"
+
+
+@dataclass
+class FailureReport:
+    stage: Literal["tokenize", "colorize", "render", "capture", "postprocess"]
+    error_type: str
+    message: str
+    latex_summary: Optional[str] = None
+    attempt: int = 1
+    renderer_rebuilt: bool = False
+
+
+@dataclass
+class CDMResult:
+    f1: Optional[float]
+    recall: Optional[float]
+    precision: Optional[float]
+    visualization: Optional[np.ndarray]
+    status: Literal["ok", "preprocess_failed", "render_failed", "postprocess_failed"]
+    failure: Optional[FailureReport] = None
+
+
+def _latex_summary(gt: str, pred: str, limit: int = 160) -> str:
+    value = "GT: {} | Pred: {}".format((gt or "").strip(), (pred or "").strip())
+    return value if len(value) <= limit else value[: limit - 1] + "…"
 
 
 def preprocess(s: str):
@@ -291,17 +317,23 @@ class FastCDM:
             latex_strings = [
                 f"$${s}$$" if not s.startswith("$$") else s for s in latex_list
             ]
-            imgs = self.render_worker.render(latex_strings)
+            results = self.render_worker.render(latex_strings)
         except Exception as e:
             print("Rendering failed:")
             print("=" * 30)
             print(traceback.format_exc())
             return []
 
-        assert len(imgs) == len(
+        assert len(results) == len(
             latex_strings
         ), "Number of rendered images must match number of input strings"
-        return imgs
+        return [result.image for result in results]
+
+    def render_results(self, latex_list: list) -> List[RenderResult]:
+        latex_strings = [
+            f"$${s}$$" if not s.startswith("$$") else s for s in latex_list
+        ]
+        return self.render_worker.render(latex_strings)
 
     def compute(self, gt: str, pred: str, visualize: bool = False) -> tuple:
         """
@@ -314,20 +346,49 @@ class FastCDM:
         返回:
             tuple: 包含 F1 分数、召回率和准确率的元组。
         """
-        gt_latex, gt_color_map = preprocess(gt)
-        pred_latex, pred_color_map = preprocess(pred)
-
-        imgs = self.render([gt_latex, pred_latex])
-        if len(imgs) < 2 or imgs[0] is None or imgs[1] is None:
-            self.render_failure_count += 1
+        result = self.compute_detailed(gt, pred, visualize=visualize)
+        if result.status != "ok":
             return (0, 0, 0, None) if visualize else (0, 0, 0)
-        gt_img, pred_img = imgs[0], imgs[1]
+        if visualize:
+            return result.f1, result.recall, result.precision, result.visualization
+        return result.f1, result.recall, result.precision
 
-        if _has_katex_error(gt_img) or _has_katex_error(pred_img):
+    def compute_detailed(self, gt: str, pred: str, visualize: bool = False) -> CDMResult:
+        summary = _latex_summary(gt, pred)
+        try:
+            gt_latex, gt_color_map = preprocess(gt)
+            pred_latex, pred_color_map = preprocess(pred)
+        except Exception as exc:
+            return CDMResult(None, None, None, None, "preprocess_failed", FailureReport("tokenize", type(exc).__name__, str(exc), summary))
+
+        try:
+            render_results = self.render_results([gt_latex, pred_latex])
+        except Exception as exc:
             self.render_failure_count += 1
+            return CDMResult(None, None, None, None, "render_failed", FailureReport("render", type(exc).__name__, str(exc), summary))
 
-        result = postprocess(gt_img, pred_img, gt_color_map, pred_color_map, visualize)
-        return result
+        if len(render_results) != 2:
+            self.render_failure_count += 1
+            return CDMResult(None, None, None, None, "render_failed", FailureReport("render", "result_count_mismatch", "Expected two render results", summary))
+        failed = next((item for item in render_results if item.error or item.image is None), None)
+        if failed is not None:
+            self.render_failure_count += 1
+            return CDMResult(
+                None, None, None, None, "render_failed",
+                FailureReport("render", "katex_error" if failed.error_text else "empty_image", failed.error_text or "Rendering produced no image", summary),
+            )
+
+        try:
+            metrics = postprocess(render_results[0].image, render_results[1].image, gt_color_map, pred_color_map, visualize)
+        except Exception as exc:
+            return CDMResult(None, None, None, None, "postprocess_failed", FailureReport("postprocess", type(exc).__name__, str(exc), summary))
+
+        if visualize:
+            f1, recall, precision, visualization = metrics
+        else:
+            f1, recall, precision = metrics
+            visualization = None
+        return CDMResult(float(f1), float(recall), float(precision), visualization, "ok")
 
     def batch_compute(self, gt_list: list, pred_list: list) -> list:
         """
